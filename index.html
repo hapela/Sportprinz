@@ -37,14 +37,18 @@
             color: #6b7280;
         }
 
+        /*
+         * Die beiden oberen Felder bleiben immer nebeneinander.
+         */
         .dashboard {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: 1fr 1fr;
             gap: 16px;
             margin-bottom: 20px;
         }
 
         .card {
+            min-width: 0;
             padding: 20px;
             background-color: white;
             border-radius: 12px;
@@ -83,17 +87,32 @@
             height: 430px;
         }
 
-        @media (max-width: 700px) {
+        /*
+         * Auch auf kleinen Bildschirmen bleiben die Felder nebeneinander.
+         */
+        @media (max-width: 500px) {
             body {
-                padding: 12px;
+                padding: 10px;
             }
 
             .dashboard {
-                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+
+            .card {
+                padding: 12px;
+            }
+
+            .card-title {
+                font-size: 12px;
+            }
+
+            .value {
+                font-size: 28px;
             }
 
             h1 {
-                font-size: 24px;
+                font-size: 22px;
             }
 
             .chart-card {
@@ -106,23 +125,32 @@
         }
     </style>
 </head>
+
 <body>
 
     <main class="container">
         <h1>Aktuell trainierende Personen</h1>
 
         <div class="description">
-            Historische Werte aus der stündlichen Datenerfassung
+            Das Diagramm basiert auf den gespeicherten Messwerten.
         </div>
 
         <section class="dashboard">
             <div class="card">
-                <div class="card-title">Aktuell trainierende Personen</div>
+                <div class="card-title">
+                    Aktuell trainierende Personen
+                </div>
+
+                <!-- Wird direkt von der API geladen -->
                 <div id="currentCount" class="value">–</div>
             </div>
 
             <div class="card">
-                <div class="card-title">Maximale Anzahl</div>
+                <div class="card-title">
+                    Maximale Anzahl
+                </div>
+
+                <!-- Wird aus data.json geladen -->
                 <div id="maxCount" class="value max-value">–</div>
             </div>
         </section>
@@ -133,12 +161,16 @@
             </div>
 
             <div id="status" class="status">
-                Gespeicherte Daten werden geladen …
+                Daten werden geladen …
             </div>
         </section>
     </main>
 
     <script>
+        const API_URL =
+            "https://clubconnector.sovd.cloud/api/anwesende/"
+            + "47fc873e-1bc1-431a-9111-e66d5abefa67-070367/23";
+
         const DATA_URL = "data.json";
 
         const currentCountElement =
@@ -163,7 +195,8 @@
                             label: "Trainierende",
                             data: [],
                             borderColor: "#2563eb",
-                            backgroundColor: "rgba(37, 99, 235, 0.15)",
+                            backgroundColor:
+                                "rgba(37, 99, 235, 0.15)",
                             borderWidth: 3,
                             pointRadius: 4,
                             pointBackgroundColor: "#2563eb",
@@ -216,6 +249,62 @@
             }
         );
 
+        /*
+         * Aktuellen count direkt von der API laden.
+         */
+        async function ladeAktuellenCount() {
+            try {
+                const response = await fetch(
+                    `${API_URL}?zeit=${Date.now()}`,
+                    {
+                        method: "GET",
+                        headers: {
+                            "Accept": "application/json"
+                        },
+                        cache: "no-store"
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(
+                        `HTTP-Fehler ${response.status}`
+                    );
+                }
+
+                const daten = await response.json();
+
+                if (typeof daten.count === "undefined") {
+                    throw new Error(
+                        "Die API-Antwort enthält keinen count-Wert."
+                    );
+                }
+
+                currentCountElement.textContent =
+                    Number(daten.count);
+
+                statusElement.textContent =
+                    `Aktueller Wert abgerufen: ${
+                        new Date().toLocaleString("de-DE")
+                    }`;
+
+            } catch (fehler) {
+                console.error(
+                    "Fehler beim Abrufen des aktuellen Werts:",
+                    fehler
+                );
+
+                currentCountElement.textContent = "–";
+
+                statusElement.textContent =
+                    `Fehler beim Abrufen des aktuellen Werts: ${
+                        fehler.message
+                    }`;
+            }
+        }
+
+        /*
+         * Historische Messwerte aus data.json laden.
+         */
         async function ladeGespeicherteDaten() {
             try {
                 const response = await fetch(
@@ -241,7 +330,7 @@
 
                 if (messwerte.length === 0) {
                     statusElement.textContent =
-                        "Noch keine Messwerte vorhanden.";
+                        "Noch keine gespeicherten Messwerte vorhanden.";
                     return;
                 }
 
@@ -251,9 +340,11 @@
 
                 messwerte.forEach((messwert) => {
                     chart.data.labels.push(messwert.zeit);
+
                     chart.data.datasets[0].data.push(
                         Number(messwert.count)
                     );
+
                     chart.data.datasets[1].data.push(
                         Number(messwert.maxCount)
                     );
@@ -262,9 +353,9 @@
                 const letzterMesswert =
                     messwerte[messwerte.length - 1];
 
-                currentCountElement.textContent =
-                    letzterMesswert.count;
-
+                /*
+                 * Das Feld maxCount kommt weiterhin aus data.json.
+                 */
                 maxCountElement.textContent =
                     letzterMesswert.maxCount;
 
@@ -282,35 +373,37 @@
 
                 chart.update();
 
-                statusElement.textContent =
-                    `Letzter gespeicherter Messwert: ${
-                        letzterMesswert.zeit
-                    }`;
-
             } catch (fehler) {
                 console.error(
-                    "Fehler beim Laden der Daten:",
+                    "Fehler beim Laden der gespeicherten Daten:",
                     fehler
                 );
 
                 statusElement.textContent =
-                    `Fehler beim Laden der Daten: ${
+                    `Fehler beim Laden der gespeicherten Daten: ${
                         fehler.message
                     }`;
             }
         }
 
-        // Daten beim Öffnen der Seite laden
+        /*
+         * Beim Öffnen der Seite:
+         * 1. Aktuellen count direkt von der API abrufen
+         * 2. Historische Werte aus data.json laden
+         */
+        ladeAktuellenCount();
         ladeGespeicherteDaten();
 
         /*
-         * Die Datei data.json kann sich durch GitHub Actions ändern.
-         * Deshalb wird sie zusätzlich alle 5 Minuten neu geladen,
-         * ohne die externe API direkt aufzurufen.
+         * Den aktuellen Wert jede Minute direkt von der API laden.
+         */
+        setInterval(ladeAktuellenCount, 60 * 1000);
+
+        /*
+         * Die gespeicherten Diagrammdaten alle 5 Minuten neu laden.
          */
         setInterval(ladeGespeicherteDaten, 5 * 60 * 1000);
     </script>
 
 </body>
 </html>
-
