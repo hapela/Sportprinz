@@ -1,1 +1,316 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Trainierende im Club</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+        }
+
+        .description {
+            margin-bottom: 20px;
+            color: #6b7280;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            padding: 20px;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .card-title {
+            margin-bottom: 8px;
+            color: #6b7280;
+            font-size: 15px;
+        }
+
+        .value {
+            font-size: 40px;
+            font-weight: bold;
+            color: #2563eb;
+        }
+
+        .max-value {
+            color: #dc2626;
+        }
+
+        .status {
+            margin-top: 16px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .chart-card {
+            height: 520px;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 430px;
+        }
+
+        @media (max-width: 700px) {
+            body {
+                padding: 12px;
+            }
+
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .chart-card {
+                height: 450px;
+            }
+
+            .chart-container {
+                height: 360px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <main class="container">
+        <h1>Aktuell trainierende Personen</h1>
+
+        <div class="description">
+            Historische Werte aus der stündlichen Datenerfassung
+        </div>
+
+        <section class="dashboard">
+            <div class="card">
+                <div class="card-title">Aktuell trainierende Personen</div>
+                <div id="currentCount" class="value">–</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Maximale Anzahl</div>
+                <div id="maxCount" class="value max-value">–</div>
+            </div>
+        </section>
+
+        <section class="card chart-card">
+            <div class="chart-container">
+                <canvas id="trainingChart"></canvas>
+            </div>
+
+            <div id="status" class="status">
+                Gespeicherte Daten werden geladen …
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const DATA_URL = "data.json";
+
+        const currentCountElement =
+            document.getElementById("currentCount");
+
+        const maxCountElement =
+            document.getElementById("maxCount");
+
+        const statusElement =
+            document.getElementById("status");
+
+        const chart = new Chart(
+            document.getElementById("trainingChart"),
+            {
+                type: "line",
+
+                data: {
+                    labels: [],
+
+                    datasets: [
+                        {
+                            label: "Trainierende",
+                            data: [],
+                            borderColor: "#2563eb",
+                            backgroundColor: "rgba(37, 99, 235, 0.15)",
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            pointBackgroundColor: "#2563eb",
+                            fill: true,
+                            tension: 0.25
+                        },
+                        {
+                            label: "Maximale Anzahl",
+                            data: [],
+                            borderColor: "#dc2626",
+                            borderWidth: 2,
+                            borderDash: [8, 5],
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0
+                        }
+                    ]
+                },
+
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: "Datum und Uhrzeit"
+                            }
+                        },
+
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
+                            },
+                            title: {
+                                display: true,
+                                text: "Trainierende"
+                            }
+                        }
+                    },
+
+                    plugins: {
+                        legend: {
+                            display: true
+                        }
+                    }
+                }
+            }
+        );
+
+        async function ladeGespeicherteDaten() {
+            try {
+                const response = await fetch(
+                    `${DATA_URL}?zeit=${Date.now()}`,
+                    {
+                        cache: "no-store"
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(
+                        `HTTP-Fehler ${response.status}`
+                    );
+                }
+
+                const messwerte = await response.json();
+
+                if (!Array.isArray(messwerte)) {
+                    throw new Error(
+                        "data.json enthält kein gültiges Array."
+                    );
+                }
+
+                if (messwerte.length === 0) {
+                    statusElement.textContent =
+                        "Noch keine Messwerte vorhanden.";
+                    return;
+                }
+
+                chart.data.labels = [];
+                chart.data.datasets[0].data = [];
+                chart.data.datasets[1].data = [];
+
+                messwerte.forEach((messwert) => {
+                    chart.data.labels.push(messwert.zeit);
+                    chart.data.datasets[0].data.push(
+                        Number(messwert.count)
+                    );
+                    chart.data.datasets[1].data.push(
+                        Number(messwert.maxCount)
+                    );
+                });
+
+                const letzterMesswert =
+                    messwerte[messwerte.length - 1];
+
+                currentCountElement.textContent =
+                    letzterMesswert.count;
+
+                maxCountElement.textContent =
+                    letzterMesswert.maxCount;
+
+                const hoechsterWert = Math.max(
+                    ...messwerte.map(
+                        messwert => Number(messwert.count)
+                    ),
+                    ...messwerte.map(
+                        messwert => Number(messwert.maxCount)
+                    )
+                );
+
+                chart.options.scales.y.suggestedMax =
+                    hoechsterWert + 10;
+
+                chart.update();
+
+                statusElement.textContent =
+                    `Letzter gespeicherter Messwert: ${
+                        letzterMesswert.zeit
+                    }`;
+
+            } catch (fehler) {
+                console.error(
+                    "Fehler beim Laden der Daten:",
+                    fehler
+                );
+
+                statusElement.textContent =
+                    `Fehler beim Laden der Daten: ${
+                        fehler.message
+                    }`;
+            }
+        }
+
+        // Daten beim Öffnen der Seite laden
+        ladeGespeicherteDaten();
+
+        /*
+         * Die Datei data.json kann sich durch GitHub Actions ändern.
+         * Deshalb wird sie zusätzlich alle 5 Minuten neu geladen,
+         * ohne die externe API direkt aufzurufen.
+         */
+        setInterval(ladeGespeicherteDaten, 5 * 60 * 1000);
+    </script>
+
+</body>
+</html>
 
