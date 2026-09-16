@@ -2,7 +2,7 @@ name: Trainierende-Daten aktualisieren
 
 on:
   schedule:
-    # Immer sieben Minuten nach jeder vollen Stunde
+    # Jede Stunde zur Minute 7, UTC
     - cron: "7 * * * *"
 
   # Ermöglicht einen manuellen Start über GitHub
