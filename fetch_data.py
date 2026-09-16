@@ -2,6 +2,9 @@ import json
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 
 
 API_URL = (
@@ -56,7 +59,7 @@ def main():
     count = int(api_daten["count"])
     max_count = int(api_daten["maxCount"])
 
-    jetzt = datetime.now(timezone.utc)
+    jetzt = datetime.now(ZoneInfo("Europe/Berlin"))
 
     neuer_messwert = {
         "timestamp": jetzt.isoformat(),
