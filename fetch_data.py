@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 API_URL = (
     "https://clubconnector.sovd.cloud/api/anwesende/"
-    "47fc873e-1bc1-431a-9111-e66d5abefa67-070367/23"
+    "47fc873e-1bc1-431a-9111-e66d5abefa67-070367/22"
 )
 
 DATA_FILE = Path("data.json")
