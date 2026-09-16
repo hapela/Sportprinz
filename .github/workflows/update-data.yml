@@ -3,7 +3,7 @@ name: Trainierende-Daten aktualisieren
 on:
   schedule:
     # Jede Stunde zur Minute 7, UTC
-    - cron: "7 * * * *"
+    - cron: "2/10 * * * *"
 
   # Ermöglicht einen manuellen Start über GitHub
   workflow_dispatch:
